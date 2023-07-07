@@ -21,8 +21,10 @@
 #define IR_DEFAULT_VDD_TYPE              0
 #define IR_EXTERNAL_VDD_TYPE             1
 #define IR_PARAM_MAX_SIZE                256*1024
+#define MIN_FREQUENCY 20000
+#define MAX_FREQUENCY 60000
 
-#ifdef OPLUS_FEATURE_CAMERA_COMMON
+#if defined (OPLUS_FEATURE_CAMERA_COMMON) || defined (CONFIG_REGULATOR_OPLUS_WL2868C)
 typedef enum {
 		EXT_NONE = -1,
 		EXT_LDO1,
@@ -146,7 +148,7 @@ static void enable_ir_vdd(struct ir_core *ir_core)
 		}
 	}
 
-#ifdef OPLUS_FEATURE_CAMERA_COMMON
+#if defined (OPLUS_FEATURE_CAMERA_COMMON) || defined (CONFIG_REGULATOR_OPLUS_WL2868C)
 	if ((true == wl2868c_check_ldo_status()) && (ir_core->core_config.vdd_type == IR_EXTERNAL_VDD_TYPE)) {
 		wl2868c_ldo_enable(EXT_LDO5, ir_core->core_config.vdd_max_vol);
 		pr_info("oplus_ir_core:wl2868c config value %d \n", ir_core->core_config.vdd_max_vol);
@@ -162,7 +164,7 @@ static void disable_ir_vdd(struct ir_core *ir_core)
 		regulator_disable(ir_core->core_config.vdd_3v0);
 	}
 
-#ifdef OPLUS_FEATURE_CAMERA_COMMON
+#if defined (OPLUS_FEATURE_CAMERA_COMMON) || defined (CONFIG_REGULATOR_OPLUS_WL2868C)
 	if ((true == wl2868c_check_ldo_status()) && (ir_core->core_config.vdd_type == IR_EXTERNAL_VDD_TYPE)) {
 		pr_info("oplus_ir_core:wl2868c disable seq type EXT_LDO5");
 		wl2868c_ldo_disable(EXT_LDO5, 0);
@@ -418,6 +420,20 @@ static long ir_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		mutex_lock(&ir->tx_mutex);
 		if ((ir->inf == IR_HW_SPI) || (ir->inf == IR_HW_PWM)) {
 			enable_ir_vdd(ir);
+		}
+
+		if (params->carrier_freq > MAX_FREQUENCY || params->carrier_freq < MIN_FREQUENCY) {
+			vfree(params);
+			pr_err("oplus_ir_core: not support freq!\n");
+			mutex_unlock(&ir->tx_mutex);
+			return -EFAULT;
+		}
+
+		if (params->size > IR_PARAM_MAX_SIZE) {
+			vfree(params);
+			pr_err("oplus_ir_core: params->size too large!\n");
+			mutex_unlock(&ir->tx_mutex);
+			return -ENOMEM;
 		}
 
 		ret = ir->ops->send(ir->priv, params, ir->inf);

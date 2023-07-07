@@ -19,6 +19,9 @@
 #define UX_MSG_LEN 64
 #define UX_DEPTH_MAX 5
 
+/* define for debug */
+#define DEBUG_SYSTRACE (1 << 0)
+
 /* define for sched assist thread type, keep same as the define in java file */
 #define SA_OPT_CLEAR     (0)
 #define SA_TYPE_LIGHT    (1 << 0)
@@ -45,6 +48,8 @@
 #define SA_INPUT            (1 << 5)
 #define SA_LAUNCHER_SI      (1 << 6)
 #define SA_SCENE_OPT_SET    (1 << 7)
+#define SA_GPU_COMPOSITION  (1 << 8)
+#define SA_AUDIO            (1 << 9)
 
 #define SF_GROUP_COUNT 2
 struct ux_util_record{
@@ -119,10 +124,13 @@ enum IM_FLAG_TYPE {
 	IM_FLAG_RENDERENGINE,
 	IM_FLAG_WEBVIEW,
 	IM_FLAG_CAMERA_HAL,
-	IM_FLAG_3RD_AUDIO,
+	IM_FLAG_AUDIO,
 	IM_FLAG_HWBINDER,
 	IM_FLAG_LAUNCHER,
 	IM_FLAG_LAUNCHER_NON_UX_RENDER,
+	IM_FLAG_SS_LOCK_OWNER,
+	IM_FLAG_CAMERA_SERVER,
+	IM_FLAG_SYSTEMSERVER_PID,
 	MAX_IM_FLAG_TYPE,
 };
 #endif
@@ -166,6 +174,8 @@ enum OPLUS_LB_TYPE
 	OPLUS_LB_MAX,
 };
 #endif
+
+extern int global_debug_enabled;
 
 struct rq;
 extern int sysctl_input_boost_enabled;
@@ -213,6 +223,7 @@ extern void sched_assist_systrace_pid(pid_t pid, int val, const char *fmt, ...);
 #define SA_SYSTRACE_MAGIC 123
 #define sched_assist_systrace(...)  sched_assist_systrace_pid(SA_SYSTRACE_MAGIC, __VA_ARGS__)
 
+bool should_force_adjust_vruntime(struct sched_entity *se);
 extern void place_entity_adjust_ux_task(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial);
 extern bool should_ux_task_skip_further_check(struct sched_entity *se);
 extern bool should_ux_preempt_wakeup(struct task_struct *wake_task, struct task_struct *curr_task);
@@ -240,7 +251,6 @@ extern void sched_assist_spread_tasks(struct task_struct *p, cpumask_t new_allow
 		int order_index, int end_index, int skip_cpu, cpumask_t *cpus, bool strict);
 #endif
 extern bool should_force_spread_tasks(void);
-extern bool should_force_adjust_vruntime(struct sched_entity *se);
 extern u64 sa_calc_delta(struct sched_entity *se, u64 delta_exec, unsigned long weight, struct load_weight *lw, bool calc_fair);
 extern void update_rq_nr_imbalance(int cpu);
 #endif /* CONFIG_OPLUS_FEATURE_SCHED_SPREAD */
@@ -290,6 +300,10 @@ static inline bool sched_assist_scene(unsigned int scene)
 		return sysctl_sched_assist_scene & SA_CAMERA;
 	case SA_ANIM:
 		return sysctl_sched_assist_scene & SA_ANIM;
+	case SA_GPU_COMPOSITION:
+		return sysctl_sched_assist_scene & SA_GPU_COMPOSITION;
+	case SA_AUDIO:
+		return sysctl_sched_assist_scene & SA_AUDIO;
 	default:
 		return false;
 	}

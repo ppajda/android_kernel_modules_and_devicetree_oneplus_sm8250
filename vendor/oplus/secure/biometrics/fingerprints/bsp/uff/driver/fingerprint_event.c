@@ -16,6 +16,12 @@ int g_fp_driver_event_type = FP_DRIVER_INTERRUPT;
 int g_reporte_cond = 0;
 DECLARE_WAIT_QUEUE_HEAD(fp_wait_queue);
 
+void reset_fingerprint_msg(void)
+{
+   g_reporte_cond = 0;
+   memset(&g_fingerprint_msg, 0, sizeof(g_fingerprint_msg));
+}
+
 static void set_event_condition(int state)
 {
     g_reporte_cond = state;

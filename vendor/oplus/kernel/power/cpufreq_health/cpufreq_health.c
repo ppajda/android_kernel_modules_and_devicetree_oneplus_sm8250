@@ -152,6 +152,34 @@ static int freq_table_get_index(struct oplus_cpufreq_health *och, unsigned int f
 	return -EINVAL;
 }
 
+static int freq_table_get_closest_index(struct oplus_cpufreq_health *och, unsigned int target_freq)
+{
+	int idx, best = -1;
+	unsigned int freq;
+	for (idx = 0; idx < och->len; idx++) {
+		freq = och->table[idx].frequency;
+
+		if (freq == target_freq)
+			return idx;
+
+		if (freq < target_freq) {
+			best = idx;
+			continue;
+		}
+
+		/* No freq found below target_freq */
+		if (best == -1)
+			return idx;
+
+		/* Choose the closest freq */
+		if (target_freq - och->table[best].frequency > freq - target_freq)
+			return idx;
+
+		return best;
+	}
+	return best;
+}
+
 void cpufreq_health_get_state(struct cpufreq_policy *policy)
 {
 	int first_cpu = cpumask_first(policy->related_cpus);
@@ -175,8 +203,8 @@ void cpufreq_health_get_state(struct cpufreq_policy *policy)
 		? now - och->last_update_time : 0;
 	delta = jiffies_64_to_clock_t(delta);
 
-	floor_idx = freq_table_get_index(och, och->curr_floor_freq);
-	ceiling_idx = freq_table_get_index(och, och->curr_ceiling_freq);
+	floor_idx = freq_table_get_closest_index(och, och->curr_floor_freq);
+	ceiling_idx = freq_table_get_closest_index(och, och->curr_ceiling_freq);
 
 	if (floor_idx >= och->len || floor_idx < 0 || ceiling_idx >= och->len || ceiling_idx < 0) {
 		pr_err("invalid idx = %d %d\n", floor_idx, ceiling_idx);

@@ -499,7 +499,8 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
 static int fp_open(struct inode *inode, struct file *filp) {
     struct fp_dev *fp_dev = &fp_dev_data;
     int            status = -ENXIO;
-
+    /* reset previous msg incase of reinit in hal*/
+    reset_fingerprint_msg();
     mutex_lock(&device_list_lock);
 
     list_for_each_entry(fp_dev, &device_list, device_entry) {
@@ -557,6 +558,8 @@ static int fp_release(struct inode *inode, struct file *filp) {
     /*last close?? */
     fp_dev->users--;
     if (!fp_dev->users) {
+        gpio_set_value(fp_dev->reset_gpio, 0);
+        mdelay(3);
         fp_power_off(fp_dev);
         fp_dev->device_available = 0;
         irq_cleanup(fp_dev);
